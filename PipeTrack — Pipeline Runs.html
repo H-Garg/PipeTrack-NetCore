@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PipeTrack — Pipeline Runs</title>
+  <style>
+    /* ====== CSS RESET (trimmed) ====== */
+    *,*::before,*::after{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;line-height:1.5;-webkit-font-smoothing:antialiased;color:#0f172a;background:#0b1020}
+    img,svg,video,canvas,iframe{display:block;max-width:100%}
+    input,button,textarea,select{font:inherit}
+
+    /* ====== THEME ====== */
+    :root{
+      --bg:#0b1020;          /* page bg */
+      --panel:#0f172a;       /* card bg */
+      --muted:#94a3b8;       /* secondary text */
+      --ink:#e2e8f0;         /* primary text */
+      --edge:#243042;        /* borders */
+      --brand:#7c4dff;       /* accent */
+      --good:#22c55e;        /* success */
+      --warn:#f59e0b;        /* running */
+      --bad:#ef4444;         /* failed */
+      --info:#38bdf8;        /* info chips */
+      --chip:#1b2340;        /* pill bg */
+      --glow:0 0 0 1px rgba(124,77,255,.25),0 0 30px -10px rgba(124,77,255,.5);
+      --radius:16px;
+      --radius-sm:10px;
+      --shadow:0 8px 30px rgba(0,0,0,.35);
+    }
+
+    body{font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Inter,Helvetica,Arial,sans-serif;color:var(--ink);background:radial-gradient(1200px 600px at 20% -10%,rgba(124,77,255,.15),transparent 60%),radial-gradient(900px 500px at 110% 10%, rgba(56,189,248,.12),transparent 55%),var(--bg)}
+
+    /* ====== LAYOUT ====== */
+    .wrap{max-width:1200px;margin:auto;padding:28px}
+    header{display:flex;gap:18px;align-items:center;justify-content:space-between;margin-bottom:22px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--brand),#38bdf8);box-shadow:var(--glow)}
+    .title{font-weight:700;letter-spacing:.2px}
+    .sub{color:var(--muted);font-size:.9rem}
+
+    .controls{display:flex;gap:12px;flex-wrap:wrap}
+    .input, .select, .button{background:var(--panel);color:var(--ink);border:1px solid var(--edge);border-radius:12px;padding:10px 12px}
+    .input{min-width:220px}
+    .button{background:linear-gradient(180deg,#1b2240,#121831);cursor:pointer;transition:.2s ease;box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+    .button:hover{transform:translateY(-1px);box-shadow:var(--glow)}
+    .chip{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--edge);color:var(--muted);font-size:.9rem}
+
+    /* ====== CARDS ====== */
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .card{grid-column:span 12;background:linear-gradient(180deg,rgba(18,25,52,.8),rgba(14,19,39,.85));border:1px solid var(--edge);border-radius:var(--radius);box-shadow:var(--shadow)}
+    @media (min-width: 920px){.card--left{grid-column:span 8}.card--right{grid-column:span 4}}
+
+    .card__head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--edge)}
+    .card__body{padding:18px}
+
+    /* ====== STATUS BADGES ====== */
+    .badge{padding:6px 10px;border-radius:999px;font-size:.8rem;font-weight:600;letter-spacing:.3px;display:inline-flex;align-items:center;gap:8px}
+    .dot{width:8px;height:8px;border-radius:999px;background:currentColor;display:inline-block;box-shadow:0 0 0 3px rgba(255,255,255,.08) inset}
+    .ok{color:var(--good);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.28)}
+    .run{color:var(--warn);background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.28)}
+    .fail{color:var(--bad);background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.28)}
+    .queued{color:var(--info);background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.28)}
+
+    /* ====== PROGRESS TRACK ====== */
+    .track{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:10px}
+    .stage{position:relative;background:linear-gradient(180deg,#121a33,#0e152b);border:1px solid var(--edge);border-radius:12px;padding:10px 12px}
+    .stage .name{font-size:.86rem;color:#c7d2fe}
+    .stage .meta{display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:.78rem;margin-top:6px}
+    .stage.done{border-color:rgba(34,197,94,.4);box-shadow:0 0 0 1px rgba(34,197,94,.2) inset}
+    .stage.run{border-color:rgba(245,158,11,.4)}
+    .stage.fail{border-color:rgba(239,68,68,.45)}
+    .stage::after{content:"";position:absolute;right:-8px;top:50%;transform:translateY(-50%);width:16px;height:2px;background:linear-gradient(90deg,transparent,#334155,transparent)}
+    .stage:last-child::after{display:none}
+
+    /* ====== TABLE ====== */
+    .table{width:100%;border-collapse:separate;border-spacing:0 10px}
+    .table th{color:var(--muted);text-align:left;font-weight:600;font-size:.85rem;padding:0 10px 6px}
+    .table td{padding:12px 10px;background:linear-gradient(180deg,#0e152b,#0b1120);border:1px solid var(--edge)}
+    .table tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+    .table tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace}
+
+    /* ====== FOOTER ====== */
+    footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:22px;color:var(--muted)}
+
+    /* ====== UTILS ====== */
+    .gap-8{gap:8px}
+    .row{display:flex;align-items:center}
+    .pill{padding:6px 10px;background:rgba(255,255,255,.04);border:1px solid var(--edge);border-radius:999px}
+    .right{margin-left:auto}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <div class="title">PipeTrack</div>
+          <div class="sub">Lightweight pipeline run tracker</div>
+        </div>
+      </div>
+      <div class="controls">
+        <input class="input" type="search" placeholder="Search pipelines, commits, authors…" />
+        <select class="select">
+          <option>Status: All</option>
+          <option>Running</option>
+          <option>Passed</option>
+          <option>Failed</option>
+          <option>Queued</option>
+        </select>
+        <button class="button">New Pipeline</button>
+      </div>
+    </header>
+
+    <section class="grid">
+      <!-- Left: Active run with progress track -->
+      <div class="card card--left">
+        <div class="card__head">
+          <div class="row gap-8">
+            <span class="badge run"><span class="dot"></span> RUNNING</span>
+            <span class="pill mono">main@1e9a7c2</span>
+            <span class="pill">Triggered by <strong>akshat</strong></span>
+          </div>
+          <div class="row gap-8">
+            <span class="chip">Started 5m ago</span>
+            <span class="chip">Agent: mumbai-prod</span>
+          </div>
+        </div>
+        <div class="card__body">
+          <h3 style="margin:0 0 8px 0">Orchestrated pipeline: <span style="color:#c7d2fe">checkout → build → test → deploy → verify</span></h3>
+          <div class="track">
+            <div class="stage done">
+              <div class="name">Checkout</div>
+              <div class="meta"><span class="mono">12s</span><span class="badge ok"><span class="dot"></span>PASS</span></div>
+            </div>
+            <div class="stage done">
+              <div class="name">Build</div>
+              <div class="meta"><span class="mono">1m 05s</span><span class="badge ok"><span class="dot"></span>PASS</span></div>
+            </div>
+            <div class="stage run">
+              <div class="name">Test</div>
+              <div class="meta"><span class="mono">39s</span><span class="badge run"><span class="dot"></span>RUN</span></div>
+            </div>
+            <div class="stage">
+              <div class="name">Deploy</div>
+              <div class="meta"><span class="mono">—</span><span class="badge queued"><span class="dot"></span>QUEUED</span></div>
+            </div>
+            <div class="stage">
+              <div class="name">Verify</div>
+              <div class="meta"><span class="mono">—</span><span class="badge queued"><span class="dot"></span>QUEUED</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: At-a-glance stats -->
+      <div class="card card--right">
+        <div class="card__head">
+          <strong>Today</strong>
+          <span class="chip">IST</span>
+        </div>
+        <div class="card__body">
+          <div class="row" style="gap:10px;flex-wrap:wrap">
+            <div class="pill">Runs: <strong>28</strong></div>
+            <div class="pill" style="color:var(--good)">Pass: <strong>21</strong></div>
+            <div class="pill" style="color:var(--warn)">Running: <strong>3</strong></div>
+            <div class="pill" style="color:var(--bad)">Fail: <strong>4</strong></div>
+          </div>
+          <div style="height:12px"></div>
+          <div class="chip">Avg duration: <strong>4m 12s</strong></div>
+        </div>
+      </div>
+
+      <!-- Table of recent runs -->
+      <div class="card">
+        <div class="card__head">
+          <strong>Recent pipeline runs</strong>
+          <div class="row gap-8">
+            <span class="chip">Branch: main</span>
+            <span class="chip">Service: checkout-api</span>
+          </div>
+        </div>
+        <div class="card__body">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Commit</th>
+                <th>Author</th>
+                <th>Stages</th>
+                <th>Duration</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="mono">#842</td>
+                <td class="mono">1e9a7c2 • align logs</td>
+                <td>akshat</td>
+                <td>
+                  <span class="badge ok"><span class="dot"></span>Build</span>
+                  <span class="badge run"><span class="dot"></span>Test</span>
+                  <span class="badge queued"><span class="dot"></span>Deploy</span>
+                </td>
+                <td class="mono">—</td>
+                <td><span class="badge run"><span class="dot"></span>RUNNING</span></td>
+              </tr>
+              <tr>
+                <td class="mono">#841</td>
+                <td class="mono">8b2f4aa • bump envoy</td>
+                <td>neha</td>
+                <td>
+                  <span class="badge ok"><span class="dot"></span>Build</span>
+                  <span class="badge ok"><span class="dot"></span>Test</span>
+                  <span class="badge ok"><span class="dot"></span>Deploy</span>
+                  <span class="badge ok"><span class="dot"></span>Verify</span>
+                </td>
+                <td class="mono">3m 54s</td>
+                <td><span class="badge ok"><span class="dot"></span>PASSED</span></td>
+              </tr>
+              <tr>
+                <td class="mono">#840</td>
+                <td class="mono">d4c5b10 • fix canary ingress</td>
+                <td>tushar</td>
+                <td>
+                  <span class="badge ok"><span class="dot"></span>Build</span>
+                  <span class="badge ok"><span class="dot"></span>Test</span>
+                  <span class="badge fail"><span class="dot"></span>Deploy</span>
+                </td>
+                <td class="mono">2m 19s</td>
+                <td><span class="badge fail"><span class="dot"></span>FAILED</span></td>
+              </tr>
+              <tr>
+                <td class="mono">#839</td>
+                <td class="mono">5a11f0c • add keda triggers</td>
+                <td>ankit</td>
+                <td>
+                  <span class="badge ok"><span class="dot"></span>Build</span>
+                  <span class="badge ok"><span class="dot"></span>Test</span>
+                  <span class="badge ok"><span class="dot"></span>Deploy</span>
+                  <span class="badge ok"><span class="dot"></span>Verify</span>
+                </td>
+                <td class="mono">4m 48s</td>
+                <td><span class="badge ok"><span class="dot"></span>PASSED</span></td>
+              </tr>
+              <tr>
+                <td class="mono">#838</td>
+                <td class="mono">a2e19bf • bump node-exporter</td>
+                <td>vinay</td>
+                <td>
+                  <span class="badge ok"><span class="dot"></span>Build</span>
+                  <span class="badge ok"><span class="dot"></span>Test</span>
+                  <span class="badge ok"><span class="dot"></span>Deploy</span>
+                  <span class="badge ok"><span class="dot"></span>Verify</span>
+                </td>
+                <td class="mono">5m 12s</td>
+                <td><span class="badge ok"><span class="dot"></span>PASSED</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span>Made with ❤ for fast observability.</span>
+      <span class="right">Press ⌘/Ctrl + F to filter quickly.</span>
+    </footer>
+  </div>
+</body>
+</html>
